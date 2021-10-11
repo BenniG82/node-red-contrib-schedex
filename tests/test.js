@@ -919,4 +919,189 @@ describe('schedex', function () {
             }, 62000);
         }, 62000);
     });
+    describe('should handle earliest and atlatest correctly', function () {
+        it('local/nodejs timezone should be set to Europe/London for reliable results', function () {
+            assert.strictEqual(new Date().getTimezoneOffset(),
+                -60,
+                'Local Timezone is not Europe/London. Please set TZ=Europe/London as environment variable');
+        });
+
+        function runCalculation(node) {
+            const now = Moment('2019-10-26 01:00:00.000');
+
+            node.now = function () {
+                return now.clone();
+            };
+
+            // Trigger some events so the node recalculates the on time
+            node.emit('input', { payload: { suspended: true } });
+            node.emit('input', { payload: { suspended: false } });
+        }
+
+        describe('shoud work for "on"', function () {
+            it('should not adjust time if not earlier than earliest', function () {
+                const node = NewNode({
+                    ontime: 'sunset',
+                    onearliest: '17:00', // Attention this is the time at the system/node timezone
+                    onatlatest: '21:00', // Attention this is the time at the system/node timezone
+                    onoffset: '0',
+                    offtime: '',
+                });
+
+                runCalculation(node);
+
+
+                const expected = '2019-10-26T17:47:00.000';
+                assert.ok(
+                    node.schedexEvents().on.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .on.moment.toISOString()}] should equal [${expected}] (no modification to sunset)`
+                );
+            });
+
+            it('should adjust time if it is earlier than earliest', function () {
+                const node = NewNode({
+                    ontime: 'sunset',
+                    onearliest: '18:00', // Attention this is the time at the system/node timezone
+                    onatlatest: '21:00', // Attention this is the time at the system/node timezone
+                    onoffset: '0',
+                    offtime: '',
+                });
+
+                runCalculation(node);
+
+                const expected = '2019-10-26T18:00:00.000';
+                assert.ok(
+                    node.schedexEvents().on.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .on.moment.toISOString()}] should equal [${expected}] (should not be before earliest time)`
+                );
+            });
+
+            it('should not adjust time if it is not later than no-later', function () {
+                const node = NewNode({
+                    ontime: 'sunset',
+                    onearliest: '15:00', // Attention this is the time at the system/node timezone
+                    onatlatest: '18:00', // Attention this is the time at the system/node timezone
+                    onoffset: '0',
+                    offtime: '',
+                });
+
+                runCalculation(node);
+
+                const expected = '2019-10-26T17:47:00.000';
+                assert.ok(
+                    node.schedexEvents().on.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .on.moment.toISOString()}] should equal [${expected}] (should not be before earliest time)`
+                );
+            });
+
+            it('should adjust time if it is later than no-later', function () {
+                const node = NewNode({
+                    ontime: 'sunset',
+                    onearliest: '15:00', // Attention this is the time at the system/node timezone
+                    onatlatest: '17:00', // Attention this is the time at the system/node timezone
+                    onoffset: '0',
+                    offtime: '',
+                });
+
+                runCalculation(node);
+
+                const expected = '2019-10-26T17:00:00.000';
+                assert.ok(
+                    node.schedexEvents().on.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .on.moment.toISOString()}] should equal [${expected}] (should not be before earliest time)`
+                );
+            });
+        });
+
+        describe('shoud work for "off"', function () {
+            it('should not adjust time if not earlier than earliest', function () {
+                const node = NewNode({
+                    ontime: '',
+                    offearliest: '17:00', // Attention this is the time at the system/node timezone
+                    offatlatest: '21:00', // Attention this is the time at the system/node timezone
+                    offoffset: '0',
+                    offtime: 'sunset',
+                });
+
+                runCalculation(node);
+
+
+                const expected = '2019-10-26T17:47:00.000';
+                assert.ok(
+                    node.schedexEvents().off.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .off.moment.toISOString()}] should equal [${expected}] (no modification to sunset)`
+                );
+            });
+
+            it('should adjust time if it is earlier than earliest', function () {
+                const node = NewNode({
+                    ontime: '',
+                    offearliest: '18:00', // Attention this is the time at the system/node timezone
+                    offatlatest: '21:00', // Attention this is the time at the system/node timezone
+                    offoffset: '0',
+                    offtime: 'sunset',
+                });
+
+                runCalculation(node);
+
+                const expected = '2019-10-26T18:00:00.000';
+                assert.ok(
+                    node.schedexEvents().off.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .off.moment.toISOString()}] should equal [${expected}] (should not be before earliest time)`
+                );
+            });
+
+            it('should not adjust time if it is not later than no-later', function () {
+                const node = NewNode({
+                    ontime: 'sunset',
+                    offearliest: '15:00', // Attention this is the time at the system/node timezone
+                    offatlatest: '18:00', // Attention this is the time at the system/node timezone
+                    offoffset: '0',
+                    offtime: 'sunset',
+                });
+
+                runCalculation(node);
+
+                const expected = '2019-10-26T17:47:00.000';
+                assert.ok(
+                    node.schedexEvents().off.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .off.moment.toISOString()}] should equal [${expected}] (should not be before earliest time)`
+                );
+            });
+
+            it('should adjust time if it is later than no-later', function () {
+                const node = NewNode({
+                    ontime: '',
+                    offearliest: '15:00', // Attention this is the time at the system/node timezone
+                    offatlatest: '17:00', // Attention this is the time at the system/node timezone
+                    offoffset: '0',
+                    offtime: 'sunset',
+                });
+
+                runCalculation(node);
+
+                const expected = '2019-10-26T17:00:00.000';
+                assert.ok(
+                    node.schedexEvents().off.moment.isSame(Moment(expected), 'minute'),
+                    `[${node
+                        .schedexEvents()
+                        .off.moment.toISOString()}] should equal [${expected}] (should not be before earliest time)`
+                );
+            });
+        });
+    });
 });

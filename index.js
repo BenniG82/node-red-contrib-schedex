@@ -48,11 +48,15 @@ module.exports = function (RED) {
         ontopic: String,
         onpayload: String,
         onoffset: Number,
+        onearliest: String,
+        onatlatest: String,
         onrandomoffset: toBoolean,
         offtime: String,
         offtopic: String,
         offpayload: String,
         offoffset: Number,
+        offearliest: String,
+        offatlatest: String,
         offrandomoffset: toBoolean,
         mon: toBoolean,
         tue: toBoolean,
@@ -207,7 +211,8 @@ module.exports = function (RED) {
             debug(`schedule: event fired now [${firedNow}] date [${start.toString()}]`);
 
             let valid = false;
-            const clockTime = new RegExp('(\\d+):(\\d+)', 'u').exec(event.time);
+            const timeRegex = new RegExp('(\\d+):(\\d+)', 'u');
+            const clockTime = timeRegex.exec(event.time);
 
             // Today is day 0 and we try seven days into the future
             while (!valid && day <= 7) {
@@ -245,6 +250,28 @@ module.exports = function (RED) {
                         event.randomoffset ? event.offset * Math.random() : event.offset,
                         'minutes'
                     );
+                }
+
+                if (event.earliest) {
+                    const earliest = timeRegex.exec(event.earliest);
+                    const earliestAllowed = event.moment.clone()
+                        .hour(+earliest[1])
+                        .minute(+earliest[2])
+                        .second(0);
+                    if (earliestAllowed.isAfter(event.moment)) {
+                        event.moment = earliestAllowed;
+                    }
+                }
+
+                if (event.atlatest) {
+                    const atlatest = timeRegex.exec(event.atlatest);
+                    const atlatestAllowed = event.moment.clone()
+                        .hour(+atlatest[1])
+                        .minute(+atlatest[2])
+                        .second(0);
+                    if (atlatestAllowed.isBefore(event.moment)) {
+                        event.moment = atlatestAllowed;
+                    }
                 }
 
                 valid =
